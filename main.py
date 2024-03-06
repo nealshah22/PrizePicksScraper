@@ -16,25 +16,21 @@ driver = uc.Chrome()
 
 
 driver.get("https://app.prizepicks.com/")
-time.sleep(3)
 
 WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "close")))
-time.sleep(3)
-print("step 1")
-
+driver.find_element(By.CLASS_NAME, "close").click()
 
 
 ppPlayers = []
 
-# CHANGE MLB TO ANY SPORT THAT YOU LIKE!!!!! IF THE SPORT IS NOT OFFERED ON PP THEN THE PROGRAM WILL RUN AN ERROR AND EXIT.
+# Select Sport
 driver.find_element(By.XPATH, "//div[@class='name'][normalize-space()='NBA']").click()
 print("clicked NBA")
-time.sleep(1)
 
 stat_container = WebDriverWait(driver, 1).until(EC.visibility_of_element_located((By.CLASS_NAME, "stat-container")))
 
+# All categories:
 # categories = driver.find_element(By.CSS_SELECTOR, ".stat-container").text.split('\n')
-
 
 categories = ["Points", "Pts+Rebs+Asts", "Assists", "Rebounds", "3-PT Made", "Pts+Rebs", "Pts+Asts", "Blocked Shots", "Steals", "Rebs+Asts", "Blks+Stls", "Turnovers"]
 
@@ -43,7 +39,6 @@ print(categories)
 for category in categories:
     driver.find_element(By.XPATH, f"//div[text()='{category}']").click()
     print("clicked on " + category + " category")
-    
     projectionsPP = WebDriverWait(driver, 5).until(
         EC.presence_of_all_elements_located((By.CLASS_NAME, "pp-container")))
     print("projectionsPP loaded:")
