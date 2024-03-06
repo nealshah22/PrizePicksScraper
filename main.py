@@ -2,6 +2,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from openpyxl import load_workbook
+
 import undetected_chromedriver as uc
 
 import time
@@ -57,15 +58,29 @@ for category in categories:
         # Now 'li' represents each <li> element within the projections list.
         # Extract the necessary details from each 'li'.
         names = li.find_element(By.CLASS_NAME, "name").text
-        print("names: ")
         print(names)
         value = li.find_element(By.CLASS_NAME, "score").get_attribute('innerHTML')
         proptype = li.find_element(By.CLASS_NAME, "text").get_attribute('innerHTML')
+        
+        goblin = "Standard"
 
+        try:
+            odds_icon = li.find_element(By.CLASS_NAME, "max-w-none")
+            goblin = odds_icon.get_attribute('alt')
+            if goblin == "Demon": 
+                goblin = "Red"
+            elif goblin == "Goblin":
+                goblin = "Green"
+            
+        except:
+            print("no goblin")
+        
+        # Now 'goblin' will be "not standard" if the "odds-icon" div is not empty, and "standard" otherwise.
         players = {
             'Name': names,
             'Value': value,
-            'Prop': proptype.replace("<wbr>", "")
+            'Prop': proptype.replace("<wbr>", ""),
+            'Goblin': goblin
         }
         ppPlayers.append(players)
 
