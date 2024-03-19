@@ -1,0 +1,182 @@
+def likelihood_metric(player, value, opponent, prop):
+    playerId = getPlayerId(player)
+    points = recentPerformance(playerId, prop)
+    if points == 404:
+        return 404
+    value = float(value)
+    
+    if not points:
+        return None  # Or a specific value indicating insufficient data
+    
+    average_points_general = np.average(points)
+    # print(average_points_general)
+    std_deviation_general = np.std(points, ddof=1)  # Using sample standard deviation
+    
+    matchupHistory = playerMatchupHistory(playerId, opponent, prop)
+    # average_points_specific = np.average(matchupHistory)
+    if len(matchupHistory) == 0:
+        average_points_specific = -1
+    else:
+        average_points_specific = np.average(matchupHistory)
+
+
+    
+    # Weighted average (adjust these weights based on your confidence in the data)
+    weight_general = 0.35
+    weight_specific = 0.65
+
+    if average_points_specific < 0:
+        weight_general = 1
+        weight_specific = 0
+    # Calculate derivatives
+    general_derivative = calculate_derivative(points)
+    specific_derivative = calculate_derivative(matchupHistory)
+
+
+    weighted_average_points = (average_points_general * weight_general) + (average_points_specific * weight_specific)
+    derivative_adjustment = (general_derivative + specific_derivative) / 2  # Simplified adjustment
+    weighted_average_points += derivative_adjustment  # Adjusting the average based on trends
+
+
+    
+    # Use the general standard deviation; consider adjusting if you have a reliable measure of variability against the specific team
+    if std_deviation_general == 0:
+        std_deviation_general = 1  # Avoid division by zero
+
+    # Calculate the z-score with the weighted average
+    z_score = (value - weighted_average_points) / std_deviation_general  # Assuming std_deviation_general is calculated
+    return z_score
+
+
+def calculate_exponential_smoothing(data, alpha=0.3):
+    """
+    Calculate exponential smoothing for trend analysis.
+    Alpha is the smoothing factor, 0 < alpha < 1.
+    """
+    if not data:
+        return 0
+    smoothed = [data[0]]  # First value is same as series
+    for n in range(1, len(data)):
+        smoothed_value = alpha * data[n] + (1 - alpha) * smoothed[n-1]
+        smoothed.append(smoothed_value)
+    return smoothed[-1] - smoothed[0]  # Return the difference as the trend
+
+def likelihood_metric(player, value, opponent, prop):
+    playerId = getPlayerId(player)
+    points = recentPerformance(playerId, prop)
+    if points == 404:
+        return 404
+    value = float(value)
+    
+    if not points:
+        return None  # Or a specific value indicating insufficient data
+    
+    average_points_general = np.average(points)
+    std_deviation_general = np.std(points, ddof=1)  # Using sample standard deviation
+    
+    matchupHistory = playerMatchupHistory(playerId, opponent, prop)
+
+    # Dynamic weighting based on data availability
+    data_length_factor = len(matchupHistory) / (len(matchupHistory) + len(points))
+    weight_general = 0.35 * (1 - data_length_factor)
+    weight_specific = 0.65 * data_length_factor
+
+    if len(matchupHistory) == 0:
+        average_points_specific = -1
+        weight_general, weight_specific = 1, 0
+    else:
+        average_points_specific = np.average(matchupHistory)
+
+    # Enhanced trend analysis
+    general_trend = calculate_exponential_smoothing(points)
+    specific_trend = calculate_exponential_smoothing(matchupHistory) if matchupHistory else 0
+
+    weighted_average_points = (average_points_general * weight_general) + (average_points_specific * weight_specific)
+    derivative_adjustment = (general_trend + specific_trend) / 2  # Adjusting based on trends
+    weighted_average_points += derivative_adjustment
+    
+    if std_deviation_general == 0:
+        std_deviation_general = 1  # Avoid division by zero
+
+    z_score = (value - weighted_average_points) / std_deviation_general
+    return z_score
+
+    
+def standardize_metric(metric_values):
+    """Standardize the metric to have a mean of 0 and standard deviation of 1."""
+    mean_val = np.mean(metric_values)
+    std_dev = np.std(metric_values)
+    return (metric_values - mean_val) / std_dev
+
+def getRebPct(player_id):
+    global player_metrics_cache
+
+    if player_metrics_cache is None:
+        # Load the data and store it in the cache
+        player_metrics_cache = playerestimatedmetrics.PlayerEstimatedMetrics(league_id='00', season='2023-24', season_type='Regular Season').get_data_frames()[0]
+    
+    # Standardize the selected metrics for the entire dataset
+    player_metrics_cache['standardized_E_REB_PCT'] = standardize_metric(player_metrics_cache['E_REB_PCT'])
+    
+    # Filter to get the row for the specific player
+    player_row = player_metrics_cache[player_metrics_cache['PLAYER_ID'] == player_id]
+    
+    if player_row.empty:
+        print("player rebound information not found")
+        return None  # Player not found
+
+    # Calculate weighted score using the standardized metrics
+    print(player_row['E_REB_PCT'].values[0])
+    rebpct = (player_row['standardized_E_REB_PCT'].values[0])
+    return rebpct
+
+def getUsgPct(player_id):
+    global player_metrics_cache
+
+    if player_metrics_cache is None:
+        # Load the data and store it in the cache
+        player_metrics_cache = playerestimatedmetrics.PlayerEstimatedMetrics(league_id='00', season='2023-24', season_type='Regular Season').get_data_frames()[0]
+    
+    # Standardize the selected metrics for the entire dataset
+    player_metrics_cache['standardized_E_USG_PCT'] = standardize_metric(player_metrics_cache['E_USG_PCT'])
+    
+    # Filter to get the row for the specific player
+    player_row = player_metrics_cache[player_metrics_cache['PLAYER_ID'] == player_id]
+    
+    if player_row.empty:
+        print("player rebound information not found")
+        return None  # Player not found
+
+    # Calculate weighted score using the standardized metrics
+    print(player_row['E_USG_PCT'].values[0])
+    rebpct = (player_row['standardized_E_USG_PCT'].values[0])
+    return rebpct
+
+
+
+
+def calculate_player_score(player_id):
+    metrics_weights = {'E_USG_PCT': 0.0001, 'E_REB_PCT': 0.9999}
+
+    global player_metrics_cache
+
+    if player_metrics_cache is None:
+        # Load the data and store it in the cache
+        player_metrics_cache = playerestimatedmetrics.PlayerEstimatedMetrics(league_id='00', season='2023-24', season_type='Regular Season').get_data_frames()[0]
+    
+    # Standardize the selected metrics for the entire dataset
+    player_metrics_cache['standardized_E_REB_PCT'] = standardize_metric(player_metrics_cache['E_REB_PCT'])
+    player_metrics_cache['standardized_E_USG_PCT'] = standardize_metric(player_metrics_cache['E_USG_PCT'])
+    
+    # Filter to get the row for the specific player
+    player_row = player_metrics_cache[player_metrics_cache['PLAYER_ID'] == player_id]
+    
+    if player_row.empty:
+        return None  # Player not found
+
+    # Calculate weighted score using the standardized metrics
+    print(player_row['E_REB_PCT'].values[0])
+    player_score = (player_row['standardized_E_REB_PCT'].values[0] * metrics_weights['E_REB_PCT'] +
+                    player_row['standardized_E_USG_PCT'].values[0] * metrics_weights['E_USG_PCT'])
+    
+    return player_score
